@@ -34,7 +34,7 @@ let cache = {
 }
 
 // ==================== 系统监控 ====================
-function getSystemStats() {
+async function getSystemStats() {
   // CPU 使用率
   const cpus = os.cpus()
   let totalIdle = 0
@@ -47,18 +47,32 @@ function getSystemStats() {
   }
   const cpuUsage = 100 - (totalIdle / totalTick * 100)
 
-  // 内存使用率
-  const totalMem = os.totalmem()
-  const freeMem = os.freemem()
-  const memUsage = (totalMem - freeMem) / totalMem * 100
-
-  // 系统运行时间
-  const uptime = os.uptime()
+  // 内存使用率（macOS 用 memory_pressure，其他系统用 os.freemem）
+  let memUsage = 0
+  try {
+    if (process.platform === 'darwin') {
+      // macOS: 使用 memory_pressure 命令获取真实内存压力
+      const { stdout } = await execAsync('memory_pressure', { timeout: 2000 })
+      const match = stdout.match(/System-wide memory free percentage:\s*(\d+)/)
+      if (match) {
+        memUsage = 100 - parseInt(match[1])
+      }
+    } else {
+      // 其他系统: 使用 os.freemem
+      const totalMem = os.totalmem()
+      const freeMem = os.freemem()
+      memUsage = (totalMem - freeMem) / totalMem * 100
+    }
+  } catch {
+    // 回退到 os.freemem
+    const totalMem = os.totalmem()
+    const freeMem = os.freemem()
+    memUsage = (totalMem - freeMem) / totalMem * 100
+  }
 
   return {
     cpu: Math.round(cpuUsage * 10) / 10,
     memory: Math.round(memUsage * 10) / 10,
-    uptime: Math.round(uptime),
     platform: process.platform,
     nodeVersion: process.version
   }
@@ -183,7 +197,7 @@ async function poll() {
     const [healthData, networkData, systemStats, gatewayUptime] = await Promise.all([
       fetchOpenClawHealth(),
       pingHosts(),
-      Promise.resolve(getSystemStats()),
+      getSystemStats(),
       getGatewayUptime()
     ])
 
