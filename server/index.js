@@ -119,6 +119,63 @@ function parseEtime(etime) {
   return 0
 }
 
+// ==================== 获取 Gateway 日志错误 ====================
+async function getGatewayLogs() {
+  try {
+    // 获取今天的日志文件（使用本地日期）
+    const now = new Date()
+    const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
+    const logFile = `/tmp/openclaw/openclaw-${today}.log`
+    
+    // 计算一小时前的时间
+    const oneHourAgo = Date.now() - 60 * 60 * 1000
+    
+    // 读取日志文件
+    const { stdout } = await execAsync(`tail -500 "${logFile}" 2>/dev/null || echo ""`, { timeout: 5000 })
+    
+    if (!stdout.trim()) {
+      return { errors: 0, logs: [] }
+    }
+    
+    const lines = stdout.trim().split('\n')
+    const errors = []
+    
+    for (const line of lines) {
+      try {
+        const entry = JSON.parse(line)
+        
+        // 检查是否是错误级别
+        if (entry._meta?.logLevelName === 'ERROR') {
+          // 解析时间
+          const logTime = new Date(entry.time).getTime()
+          
+          // 只统计过去一小时的
+          if (logTime >= oneHourAgo) {
+            errors.push({
+              timestamp: entry.time,  // 使用 timestamp 匹配前端
+              message: entry[0] || JSON.stringify(entry),
+              level: 'error'  // 小写匹配前端过滤
+            })
+          }
+        }
+      } catch {
+        // 非 JSON 行，跳过
+      }
+    }
+    
+    // 取最新的 5 个错误
+    const recentErrors = errors.slice(-5).reverse()
+    
+    return {
+      errors: errors.length,
+      logs: recentErrors
+    }
+  } catch (error) {
+    console.log('Failed to read Gateway logs:', error.message)
+    return { errors: 0, logs: [] }
+  }
+}
+
 // ==================== 获取 OpenClaw 健康状态 ====================
 async function fetchOpenClawHealth() {
   try {
@@ -194,11 +251,12 @@ async function poll() {
   console.log(`[${new Date().toLocaleTimeString()}] Polling...`)
   
   try {
-    const [healthData, networkData, systemStats, gatewayUptime] = await Promise.all([
+    const [healthData, networkData, systemStats, gatewayUptime, gatewayLogs] = await Promise.all([
       fetchOpenClawHealth(),
       pingHosts(),
       getSystemStats(),
-      getGatewayUptime()
+      getGatewayUptime(),
+      getGatewayLogs()
     ])
 
     if (healthData.connected) {
@@ -211,8 +269,8 @@ async function poll() {
         agents: healthData.agents,
         system: systemStats,
         network: networkData,
-        logs: [],
-        errors: 0,
+        logs: gatewayLogs.logs,
+        errors: gatewayLogs.errors,
         lastUpdated: new Date().toISOString()
       }
     } else {
@@ -220,10 +278,12 @@ async function poll() {
       cache.gateway.uptime = gatewayUptime
       cache.system = systemStats
       cache.network = networkData
+      cache.logs = gatewayLogs.logs
+      cache.errors = gatewayLogs.errors
       cache.lastUpdated = new Date().toISOString()
     }
 
-    console.log(`[${new Date().toLocaleTimeString()}] Updated. OpenClaw: ${cache.gateway.connected ? '✓' : '✗'}, Uptime: ${Math.floor(gatewayUptime/3600)}h, Network: ${Object.keys(networkData).length} hosts, CPU: ${systemStats.cpu}%, Mem: ${systemStats.memory}%`)
+    console.log(`[${new Date().toLocaleTimeString()}] Updated. OpenClaw: ${cache.gateway.connected ? '✓' : '✗'}, Uptime: ${Math.floor(gatewayUptime/3600)}h, Errors: ${cache.errors}, Network: ${Object.keys(networkData).length} hosts, CPU: ${systemStats.cpu}%, Mem: ${systemStats.memory}%`)
   } catch (error) {
     console.error('Poll error:', error.message)
   }
