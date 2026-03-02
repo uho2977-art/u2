@@ -1,113 +1,187 @@
 // OpenClaw Gateway API client
 
-const GATEWAY_URL = localStorage.getItem('gatewayUrl') || 'http://localhost:18789'
-const GATEWAY_TOKEN = localStorage.getItem('gatewayToken') || ''
+const GATEWAY_URL_KEY = 'openclaw_gateway_url'
+const GATEWAY_TOKEN_KEY = 'openclaw_gateway_token'
 
-export async function fetchHealth() {
-  try {
-    const response = await fetch(`${GATEWAY_URL}/rpc`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        ...(GATEWAY_TOKEN && { 'Authorization': `Bearer ${GATEWAY_TOKEN}` })
-      },
-      body: JSON.stringify({
-        method: 'health',
-        params: {}
-      })
-    })
+export interface GatewayConfig {
+  url: string
+  token: string
+}
 
-    if (!response.ok) {
-      // Return mock data if gateway returns error
-      return getMockData()
-    }
+export function setGatewayConfig(url: string, token: string): void {
+  localStorage.setItem(GATEWAY_URL_KEY, url)
+  localStorage.setItem(GATEWAY_TOKEN_KEY, token)
+}
 
-    const data = await response.json()
-    return transformHealthData(data)
-  } catch (error) {
-    // Return mock data if gateway is not available
-    console.log('Gateway not available, using mock data')
-    return getMockData()
+export function getGatewayConfig(): GatewayConfig {
+  return {
+    url: localStorage.getItem(GATEWAY_URL_KEY) || '',
+    token: localStorage.getItem(GATEWAY_TOKEN_KEY) || ''
   }
 }
 
-export async function fetchAgents() {
-  const response = await fetch(`${GATEWAY_URL}/rpc`, {
+function getUrl(): string {
+  return localStorage.getItem(GATEWAY_URL_KEY) || ''
+}
+
+function getToken(): string {
+  return localStorage.getItem(GATEWAY_TOKEN_KEY) || ''
+}
+
+// RPC 调用
+async function rpc(method: string, params: Record<string, unknown> = {}): Promise<unknown> {
+  const url = getUrl()
+  const token = getToken()
+  
+  if (!url) {
+    throw new Error('Gateway URL 未配置')
+  }
+  
+  const response = await fetch(`${url.replace(/\/$/, '')}/rpc`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      ...(GATEWAY_TOKEN && { 'Authorization': `Bearer ${GATEWAY_TOKEN}` })
+      ...(token && { 'Authorization': `Bearer ${token}` })
     },
-    body: JSON.stringify({
-      method: 'agents.list',
-      params: {}
-    })
+    body: JSON.stringify({ method, params })
   })
-
+  
   if (!response.ok) {
     throw new Error(`Gateway 返回 ${response.status}`)
   }
-
-  return response.json()
+  
+  const data = await response.json()
+  
+  if (!data.ok) {
+    throw new Error(data.error || 'RPC 调用失败')
+  }
+  
+  return data.payload || data
 }
 
-function transformHealthData(raw: any) {
-  return {
-    gateway: {
-      connected: true,
-      uptime: raw.uptime || raw.status?.uptime || 0,
-      version: raw.version || raw.status?.version || 'N/A'
-    },
-    agents: {
-      total: raw.agents?.total || raw.agentCount || 0,
-      active: raw.agents?.active || raw.activeAgents || 0,
-      list: raw.agents?.list || raw.agentList || []
-    },
-    system: {
-      cpu: raw.system?.cpu || raw.cpu || 0,
-      memory: raw.system?.memory || raw.memory || 0,
-      platform: raw.system?.platform || raw.platform || 'Unknown',
-      nodeVersion: raw.system?.nodeVersion || raw.nodeVersion || 'N/A'
-    },
-    logs: raw.logs || [],
-    lastUpdated: new Date().toISOString()
+// 获取健康状态
+export async function fetchHealth(): Promise<{
+  gateway: { connected: boolean; uptime: number; version: string }
+  agents: { total: number; active: number; list: string[] }
+  system: { cpu: number; memory: number; platform: string; nodeVersion: string }
+  errors: number
+  lastUpdated: string
+}> {
+  try {
+    const result = await rpc('health') as Record<string, unknown>
+    const status = (result.status as Record<string, unknown>) || {}
+    const agents = (result.agents as Record<string, unknown>) || {}
+    const system = (result.system as Record<string, unknown>) || {}
+    
+    return {
+      gateway: {
+        connected: true,
+        uptime: (result.uptime as number) || (status.uptime as number) || 0,
+        version: (result.version as string) || (status.version as string) || 'N/A'
+      },
+      agents: {
+        total: (agents.total as number) || (result.agentCount as number) || 0,
+        active: (agents.active as number) || (result.activeAgents as number) || 0,
+        list: (agents.list as string[]) || (result.agentList as string[]) || []
+      },
+      system: {
+        cpu: (system.cpu as number) || (result.cpu as number) || 0,
+        memory: (system.memory as number) || (result.memory as number) || 0,
+        platform: (system.platform as string) || (result.platform as string) || 'unknown',
+        nodeVersion: (system.nodeVersion as string) || (result.nodeVersion as string) || 'N/A'
+      },
+      errors: (result.errors as number) || (result.recentErrors as number) || 0,
+      lastUpdated: new Date().toISOString()
+    }
+  } catch (error) {
+    console.error('Health fetch failed:', error)
+    throw error
   }
 }
 
-function getMockData() {
-  // Mock data for demonstration
-  return {
-    gateway: {
-      connected: true,
-      uptime: 86400 + Math.floor(Math.random() * 3600),
-      version: '1.0.0'
-    },
-    agents: {
-      total: 3,
-      active: 2,
-      list: ['main', 'coder', 'assistant']
-    },
-    system: {
-      cpu: 25 + Math.floor(Math.random() * 30),
-      memory: 40 + Math.floor(Math.random() * 20),
-      platform: 'darwin',
-      nodeVersion: 'v22.0.0'
-    },
-    logs: [
-      { timestamp: new Date(Date.now() - 300000).toISOString(), level: 'info' as const, message: 'Gateway 启动成功' },
-      { timestamp: new Date(Date.now() - 60000).toISOString(), level: 'info' as const, message: 'Agent main 已连接' },
-      { timestamp: new Date(Date.now() - 45000).toISOString(), level: 'warn' as const, message: '内存使用率超过 60%' },
-      { timestamp: new Date(Date.now() - 30000).toISOString(), level: 'error' as const, message: '请求超时: /v1/chat/completions' },
-      { timestamp: new Date(Date.now() - 10000).toISOString(), level: 'error' as const, message: '连接 Agent assistant 失败' }
-    ],
-    lastUpdated: new Date().toISOString()
+// 日志条目类型
+export interface LogEntry {
+  timestamp: string
+  level: 'error' | 'warn' | 'info' | 'debug'
+  message: string
+}
+
+// 获取日志
+export async function fetchLogs(limit: number = 10, level?: string): Promise<LogEntry[]> {
+  try {
+    const params: Record<string, unknown> = { limit }
+    if (level) {
+      params.level = level
+    }
+    
+    const result = await rpc('logs', params)
+    
+    // 处理可能的返回格式
+    if (Array.isArray(result)) {
+      return result.map((log: Record<string, unknown>) => ({
+        timestamp: (log.timestamp as string) || (log.ts as string) || new Date().toISOString(),
+        level: (log.level as 'error' | 'warn' | 'info' | 'debug') || 'info',
+        message: (log.message as string) || (log.msg as string) || ''
+      }))
+    }
+    
+    if (result && typeof result === 'object' && 'logs' in result) {
+      const logs = (result as Record<string, unknown>).logs
+      if (Array.isArray(logs)) {
+        return logs.map((log: Record<string, unknown>) => ({
+          timestamp: (log.timestamp as string) || (log.ts as string) || new Date().toISOString(),
+          level: (log.level as 'error' | 'warn' | 'info' | 'debug') || 'info',
+          message: (log.message as string) || (log.msg as string) || ''
+        }))
+      }
+    }
+    
+    return []
+  } catch (error) {
+    console.error('Logs fetch failed:', error)
+    return []
   }
 }
 
-export function setGatewayUrl(url: string) {
-  localStorage.setItem('gatewayUrl', url)
+// 获取 Agent 列表
+export async function fetchAgents(): Promise<string[]> {
+  try {
+    const result = await rpc('agents.list')
+    
+    if (Array.isArray(result)) {
+      return result.map((a: Record<string, unknown>) => (a.id as string) || (a.name as string) || String(a))
+    }
+    
+    if (result && typeof result === 'object' && 'agents' in result) {
+      const agents = (result as Record<string, unknown>).agents
+      if (Array.isArray(agents)) {
+        return agents.map((a: Record<string, unknown>) => (a.id as string) || (a.name as string) || String(a))
+      }
+    }
+    
+    return []
+  } catch (error) {
+    console.error('Agents fetch failed:', error)
+    return []
+  }
 }
 
-export function setGatewayToken(token: string) {
-  localStorage.setItem('gatewayToken', token)
+// 获取会话列表
+export async function fetchSessions(): Promise<Array<Record<string, unknown>>> {
+  try {
+    const result = await rpc('sessions.list')
+    
+    if (Array.isArray(result)) {
+      return result as Array<Record<string, unknown>>
+    }
+    
+    if (result && typeof result === 'object' && 'sessions' in result) {
+      return (result as Record<string, unknown>).sessions as Array<Record<string, unknown>>
+    }
+    
+    return []
+  } catch (error) {
+    console.error('Sessions fetch failed:', error)
+    return []
+  }
 }
