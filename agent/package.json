@@ -1,0 +1,19 @@
+{
+  "name": "openclaw-monitor-agent",
+  "version": "1.0.0",
+  "description": "OpenClaw monitoring agent with network ping probes",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "node --watch index.js"
+  },
+  "keywords": ["openclaw", "monitor", "ping", "health"],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "express": "^4.18.2",
+    "node-fetch": "^3.3.2",
+    "ping": "^0.4.4"
+  }
+}

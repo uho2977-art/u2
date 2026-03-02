@@ -373,6 +373,97 @@ body {
   opacity: 0.7;
 }
 
+/* === 网络状态 === */
+.network-section {
+  flex-shrink: 0;
+}
+
+.network-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+  width: 100%;
+}
+
+@media (orientation: portrait) {
+  .network-section {
+    margin-bottom: 8px;
+  }
+  
+  .network-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+  
+  .network-card {
+    padding: 12px 8px;
+  }
+  
+  .network-name {
+    font-size: 11px;
+  }
+  
+  .network-status {
+    font-size: 14px;
+  }
+}
+
+@media (orientation: landscape) {
+  .network-section {
+    margin-bottom: 8px;
+  }
+  
+  .network-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+.network-card {
+  background: var(--card-bg);
+  border-radius: 12px;
+  padding: 14px 10px;
+  text-align: center;
+  border: 1px solid transparent;
+  transition: all 0.3s ease;
+}
+
+.network-card.ok {
+  border-color: rgba(0, 255, 136, 0.3);
+}
+
+.network-card.ok .network-status {
+  color: var(--green);
+}
+
+.network-card.slow {
+  border-color: rgba(255, 204, 0, 0.3);
+}
+
+.network-card.slow .network-status {
+  color: var(--yellow);
+}
+
+.network-card.timeout {
+  border-color: rgba(255, 51, 51, 0.3);
+  background: rgba(255, 51, 51, 0.05);
+}
+
+.network-card.timeout .network-status {
+  color: var(--red);
+}
+
+.network-name {
+  font-size: 11px;
+  color: var(--text-dim);
+  margin-bottom: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.network-status {
+  font-size: 16px;
+  font-weight: 700;
+}
+
 /* === 加载状态 === */
 .loading {
   display: flex;
@@ -471,6 +562,13 @@ body {
 
 .config-btn:active {
   transform: scale(0.98);
+}
+
+.config-hint {
+  display: block;
+  font-size: 11px;
+  color: #555;
+  margin-top: 6px;
 }
 
 /* === 响应式调整 === */

@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import './App.css'
-import { fetchHealth, fetchLogs, setGatewayConfig } from './api/openclaw'
+import { fetchHealth, fetchLogs, setGatewayConfig, type LogEntry } from './api/openclaw'
 
 export interface HealthData {
   gateway: {
@@ -19,14 +19,14 @@ export interface HealthData {
     platform: string
     nodeVersion: string
   }
+  network: Record<string, {
+    host: string
+    latency: number | null
+    status: string
+    alive: boolean
+  }>
   errors: number
   lastUpdated: string
-}
-
-export interface LogEntry {
-  timestamp: string
-  level: 'error' | 'warn' | 'info' | 'debug'
-  message: string
 }
 
 type StatusType = 'green' | 'yellow' | 'red'
@@ -37,10 +37,10 @@ function App() {
   const [loading, setLoading] = useState(true)
   const [configured, setConfigured] = useState(false)
 
-  // 检查是否已配置 Gateway
+  // 检查是否已配置
   useEffect(() => {
-    const url = localStorage.getItem('gatewayUrl')
-    if (url) {
+    const agentUrl = localStorage.getItem('openclaw_agent_url')
+    if (agentUrl) {
       setConfigured(true)
     }
   }, [])
@@ -55,7 +55,7 @@ function App() {
       
       setHealth(healthData)
       setLogs(logsData)
-    } catch (err) {
+    } catch {
       // 使用模拟数据
       setHealth(getMockHealth())
       setLogs(getMockLogs())
@@ -76,7 +76,14 @@ function App() {
   const getStatus = (): StatusType => {
     if (!health) return 'red'
     if (!health.gateway.connected) return 'red'
-    if (health.errors > 0 || health.system.memory > 80) return 'yellow'
+    
+    // 检查网络状态
+    const networkValues = Object.values(health.network)
+    const hasTimeout = networkValues.some(n => !n.alive)
+    const hasSlow = networkValues.some(n => n.status === 'slow')
+    
+    if (hasTimeout) return 'yellow'
+    if (health.errors > 0 || health.system.memory > 80 || hasSlow) return 'yellow'
     return 'green'
   }
 
@@ -91,8 +98,8 @@ function App() {
   }
 
   // 配置 Gateway
-  const handleConfig = (url: string, token: string) => {
-    setGatewayConfig(url, token)
+  const handleConfig = (agentUrl: string, gatewayUrl: string, gatewayToken: string) => {
+    setGatewayConfig(agentUrl, gatewayUrl, gatewayToken)
     setConfigured(true)
     setLoading(true)
     fetchData()
@@ -167,14 +174,27 @@ function App() {
         </div>
       </div>
       
+      {/* 网络状态 */}
+      {health?.network && Object.keys(health.network).length > 0 && (
+        <div className="network-section">
+          <div className="network-grid">
+            {Object.entries(health.network).map(([name, data]) => (
+              <div key={name} className={`network-card ${data.alive ? (data.status === 'slow' ? 'slow' : 'ok') : 'timeout'}`}>
+                <div className="network-name">{name}</div>
+                <div className="network-status">
+                  {data.alive ? `${data.latency}ms` : '✕'}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+      
       {/* 日志横幅 */}
       <div className="logs-section">
-        <div className="logs-label">
-          日志
-        </div>
+        <div className="logs-label">日志</div>
         <div className="logs-ticker">
           <div className="logs-ticker-inner">
-            {/* 复制两份实现无缝滚动 */}
             {[...errorLogs, ...errorLogs].map((log, i) => (
               <div key={i} className={`log-item ${log.level}`}>
                 <span className="log-time">{formatTime(log.timestamp)}</span>
@@ -189,14 +209,15 @@ function App() {
 }
 
 // 配置界面
-function ConfigScreen({ onConfig }: { onConfig: (url: string, token: string) => void }) {
-  const [url, setUrl] = useState('')
-  const [token, setToken] = useState('')
+function ConfigScreen({ onConfig }: { onConfig: (agentUrl: string, gatewayUrl: string, gatewayToken: string) => void }) {
+  const [agentUrl, setAgentUrl] = useState('')
+  const [gatewayUrl, setGatewayUrl] = useState('')
+  const [gatewayToken, setGatewayToken] = useState('')
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    if (url) {
-      onConfig(url, token)
+    if (agentUrl) {
+      onConfig(agentUrl, gatewayUrl, gatewayToken)
     }
   }
 
@@ -204,26 +225,39 @@ function ConfigScreen({ onConfig }: { onConfig: (url: string, token: string) => 
     <div className="config-screen">
       <div className="config-card">
         <div className="config-title">⚙️ OpenClaw Dashboard</div>
-        <p className="config-desc">连接到 OpenClaw Gateway</p>
+        <p className="config-desc">配置监控服务</p>
         
         <form onSubmit={handleSubmit}>
           <div className="config-field">
-            <label>Gateway URL</label>
+            <label>Monitor Agent URL</label>
             <input
               type="text"
-              placeholder="http://192.168.1.100:18789"
-              value={url}
-              onChange={e => setUrl(e.target.value)}
+              placeholder="http://localhost:3001"
+              value={agentUrl}
+              onChange={e => setAgentUrl(e.target.value)}
+              required
             />
+            <span className="config-hint">监控 Agent 地址</span>
           </div>
           
           <div className="config-field">
-            <label>Token (可选)</label>
+            <label>Gateway URL (可选)</label>
+            <input
+              type="text"
+              placeholder="http://192.168.1.100:18789"
+              value={gatewayUrl}
+              onChange={e => setGatewayUrl(e.target.value)}
+            />
+            <span className="config-hint">仅当 Agent 需要转发时填写</span>
+          </div>
+          
+          <div className="config-field">
+            <label>Gateway Token (可选)</label>
             <input
               type="password"
               placeholder="Gateway 认证 Token"
-              value={token}
-              onChange={e => setToken(e.target.value)}
+              value={gatewayToken}
+              onChange={e => setGatewayToken(e.target.value)}
             />
           </div>
           
@@ -252,6 +286,12 @@ function getMockHealth(): HealthData {
     gateway: { connected: true, uptime: 86400 + Math.floor(Math.random() * 7200), version: '1.0.0' },
     agents: { total: 3, active: 2, list: ['main', 'coder', 'assistant'] },
     system: { cpu: 25 + Math.floor(Math.random() * 30), memory: 40 + Math.floor(Math.random() * 30), platform: 'darwin', nodeVersion: 'v22.0.0' },
+    network: {
+      'GitHub': { host: 'github.com', latency: 45 + Math.floor(Math.random() * 50), status: 'ok', alive: true },
+      'YouTube': { host: 'youtube.com', latency: 80 + Math.floor(Math.random() * 100), status: 'ok', alive: true },
+      'Telegram': { host: 'telegram.org', latency: 35 + Math.floor(Math.random() * 30), status: 'ok', alive: true },
+      'Google': { host: 'google.com', latency: 30 + Math.floor(Math.random() * 40), status: 'ok', alive: true }
+    },
     errors: Math.floor(Math.random() * 3),
     lastUpdated: new Date().toISOString()
   }
