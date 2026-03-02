@@ -423,7 +423,7 @@ body {
 
 .network-grid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(5, 1fr);
   gap: 8px;
   width: 100%;
 }
@@ -434,7 +434,7 @@ body {
   }
   
   .network-grid {
-    grid-template-columns: repeat(4, 1fr);
+    grid-template-columns: repeat(5, 1fr);
   }
   
   .network-card {
@@ -456,7 +456,7 @@ body {
   }
   
   .network-grid {
-    grid-template-columns: repeat(4, 1fr);
+    grid-template-columns: repeat(5, 1fr);
   }
 }
 
