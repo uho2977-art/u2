@@ -18,7 +18,8 @@ const CONFIG = {
     { name: 'GitHub', host: 'github.com' },
     { name: 'YouTube', host: 'youtube.com' },
     { name: 'Telegram', host: 'telegram.org' },
-    { name: 'Google', host: 'google.com' }
+    { name: 'Google', host: 'google.com' },
+    { name: 'Ollama', host: 'ollama.com' }
   ]
 }
 
