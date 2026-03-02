@@ -24,6 +24,45 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
+/* === 全屏按钮 === */
+.fullscreen-btn {
+  position: fixed;
+  top: 16px;
+  right: 16px;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 20px;
+  cursor: pointer;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.fullscreen-btn:hover {
+  background: rgba(255, 255, 255, 0.2);
+  color: #fff;
+}
+
+.fullscreen-btn:active {
+  transform: scale(0.95);
+}
+
+@media (hover: none) {
+  .fullscreen-btn {
+    opacity: 0.5;
+  }
+  
+  .fullscreen-btn:active {
+    opacity: 1;
+  }
+}
+
 /* === Dashboard Layout === */
 .dashboard {
   height: 100vh;
@@ -31,6 +70,10 @@ body {
   display: flex;
   flex-direction: column;
   padding: 16px;
+  padding-top: max(16px, env(safe-area-inset-top));
+  padding-bottom: max(16px, env(safe-area-inset-bottom));
+  padding-left: max(16px, env(safe-area-inset-left));
+  padding-right: max(16px, env(safe-area-inset-right));
   max-width: 100%;
 }
 

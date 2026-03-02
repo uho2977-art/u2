@@ -36,6 +36,23 @@ function App() {
   const [logs, setLogs] = useState<LogEntry[]>([])
   const [loading, setLoading] = useState(true)
   const [configured, setConfigured] = useState(false)
+  const [isFullscreen, setIsFullscreen] = useState(false)
+
+  // 全屏切换
+  const toggleFullscreen = async () => {
+    try {
+      if (!document.fullscreenElement) {
+        await document.documentElement.requestFullscreen()
+        setIsFullscreen(true)
+      } else {
+        await document.exitFullscreen()
+        setIsFullscreen(false)
+      }
+    } catch (err) {
+      // 某些浏览器可能不支持
+      console.log('Fullscreen not supported')
+    }
+  }
 
   // 检查是否已配置
   useEffect(() => {
@@ -43,6 +60,13 @@ function App() {
     if (agentUrl) {
       setConfigured(true)
     }
+    
+    // 监听全屏状态变化
+    const handleFullscreenChange = () => {
+      setIsFullscreen(!!document.fullscreenElement)
+    }
+    document.addEventListener('fullscreenchange', handleFullscreenChange)
+    return () => document.removeEventListener('fullscreenchange', handleFullscreenChange)
   }, [])
 
   // 获取健康状态
@@ -127,6 +151,11 @@ function App() {
 
   return (
     <div className="dashboard">
+      {/* 全屏按钮 */}
+      <button className="fullscreen-btn" onClick={toggleFullscreen}>
+        {isFullscreen ? '⤡' : '⤢'}
+      </button>
+      
       {/* 主区域：指示灯 + 指标 */}
       <div className="main-section">
         <div className="status-block">
