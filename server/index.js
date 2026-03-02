@@ -64,6 +64,47 @@ function getSystemStats() {
   }
 }
 
+// ==================== 获取 Gateway 运行时间 ====================
+async function getGatewayUptime() {
+  try {
+    // 找到 openclaw-gateway 进程的 PID
+    const { stdout } = await execAsync('ps aux | grep "openclaw-gateway" | grep -v grep | head -1 | awk \'{print $2}\'', { timeout: 2000 })
+    const pid = stdout.trim()
+    
+    if (!pid) return 0
+    
+    // 获取进程运行时间 (etime 格式: DD-HH:MM:SS 或 HH:MM:SS 或 MM:SS)
+    const { stdout: etime } = await execAsync(`ps -p ${pid} -o etime=`, { timeout: 2000 })
+    return parseEtime(etime.trim())
+  } catch {
+    return 0
+  }
+}
+
+// 解析 etime 格式为秒数
+function parseEtime(etime) {
+  // 格式: "DD-HH:MM:SS" 或 "HH:MM:SS" 或 "MM:SS"
+  const parts = etime.trim().replace(/-/g, ':').split(':').map(Number)
+  
+  if (parts.length === 3) {
+    // 可能是 DD:HH:MM:SS 或 HH:MM:SS
+    if (etime.includes('-')) {
+      // DD-HH:MM:SS
+      return parts[0] * 86400 + parts[1] * 3600 + parts[2] * 60
+    } else {
+      // HH:MM:SS
+      return parts[0] * 3600 + parts[1] * 60 + parts[2]
+    }
+  } else if (parts.length === 4) {
+    // DD:HH:MM:SS (after replace)
+    return parts[0] * 86400 + parts[1] * 3600 + parts[2] * 60 + parts[3]
+  } else if (parts.length === 2) {
+    // MM:SS
+    return parts[0] * 60 + parts[1]
+  }
+  return 0
+}
+
 // ==================== 获取 OpenClaw 健康状态 ====================
 async function fetchOpenClawHealth() {
   try {
@@ -135,26 +176,22 @@ async function pingHosts() {
 }
 
 // ==================== 主轮询函数 ====================
-let startTime = Date.now()
-
 async function poll() {
   console.log(`[${new Date().toLocaleTimeString()}] Polling...`)
   
   try {
-    const [healthData, networkData, systemStats] = await Promise.all([
+    const [healthData, networkData, systemStats, gatewayUptime] = await Promise.all([
       fetchOpenClawHealth(),
       pingHosts(),
-      Promise.resolve(getSystemStats()) // 同步获取系统状态
+      Promise.resolve(getSystemStats()),
+      getGatewayUptime()
     ])
-
-    // Dashboard 运行时间
-    const dashboardUptime = Math.floor((Date.now() - startTime) / 1000)
 
     if (healthData.connected) {
       cache = {
         gateway: {
           connected: true,
-          uptime: dashboardUptime,
+          uptime: gatewayUptime,  // 使用 Gateway 进程运行时间
           version: healthData.raw?.version || 'N/A'
         },
         agents: healthData.agents,
@@ -166,13 +203,13 @@ async function poll() {
       }
     } else {
       cache.gateway.connected = false
-      cache.gateway.uptime = dashboardUptime
+      cache.gateway.uptime = gatewayUptime
       cache.system = systemStats
       cache.network = networkData
       cache.lastUpdated = new Date().toISOString()
     }
 
-    console.log(`[${new Date().toLocaleTimeString()}] Updated. OpenClaw: ${cache.gateway.connected ? '✓' : '✗'}, Network: ${Object.keys(networkData).length} hosts, CPU: ${systemStats.cpu}%, Mem: ${systemStats.memory}%`)
+    console.log(`[${new Date().toLocaleTimeString()}] Updated. OpenClaw: ${cache.gateway.connected ? '✓' : '✗'}, Uptime: ${Math.floor(gatewayUptime/3600)}h, Network: ${Object.keys(networkData).length} hosts, CPU: ${systemStats.cpu}%, Mem: ${systemStats.memory}%`)
   } catch (error) {
     console.error('Poll error:', error.message)
   }

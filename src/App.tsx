@@ -75,8 +75,8 @@ function App() {
     // 立即获取一次
     fetchData()
     
-    // 定时刷新（与服务器轮询同步，120秒）
-    const interval = setInterval(fetchData, 120000)
+    // 定时刷新（每 30 秒）
+    const interval = setInterval(fetchData, 30000)
     
     return () => {
       document.removeEventListener('fullscreenchange', handleFullscreenChange)
