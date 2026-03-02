@@ -211,11 +211,17 @@ function App() {
   )
 }
 
-// 格式化时间
+// 格式化时间（包含日期）
 function formatTime(timestamp: string): string {
   try {
     const date = new Date(timestamp)
-    return date.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+    const now = new Date()
+    const isToday = date.toDateString() === now.toDateString()
+    
+    if (isToday) {
+      return date.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })
+    }
+    return date.toLocaleDateString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })
   } catch {
     return timestamp
   }
@@ -224,15 +230,10 @@ function formatTime(timestamp: string): string {
 // 模拟数据
 function getMockHealth(): HealthData {
   return {
-    gateway: { connected: true, uptime: 86400 + Math.floor(Math.random() * 7200), version: 'N/A' },
+    gateway: { connected: false, uptime: 0, version: 'N/A' },
     agents: { total: 0, active: 0, list: [] },
     system: { cpu: 0, memory: 0, platform: 'unknown', nodeVersion: 'N/A' },
-    network: {
-      'GitHub': { host: 'github.com', latency: 45 + Math.floor(Math.random() * 50), status: 'ok', alive: true },
-      'YouTube': { host: 'youtube.com', latency: 80 + Math.floor(Math.random() * 100), status: 'ok', alive: true },
-      'Telegram': { host: 'telegram.org', latency: 35 + Math.floor(Math.random() * 30), status: 'ok', alive: true },
-      'Google': { host: 'google.com', latency: 30 + Math.floor(Math.random() * 40), status: 'ok', alive: true }
-    },
+    network: {},
     logs: [],
     errors: 0,
     lastUpdated: new Date().toISOString()
