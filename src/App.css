@@ -449,11 +449,15 @@ body {
   }
   
   .network-name {
-    font-size: 10px;
+    font-size: 9px;
   }
   
   .network-status {
-    font-size: 16px;
+    font-size: 22px;
+  }
+  
+  .network-unit {
+    font-size: 10px;
   }
 }
 
@@ -502,16 +506,25 @@ body {
 }
 
 .network-name {
-  font-size: 11px;
+  font-size: 10px;
   color: var(--text-dim);
-  margin-bottom: 4px;
+  text-align: right;
+  margin-bottom: 2px;
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }
 
 .network-status {
-  font-size: 16px;
-  font-weight: 700;
+  font-size: 24px;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.network-unit {
+  font-size: 11px;
+  font-weight: 400;
+  opacity: 0.5;
+  margin-left: 2px;
 }
 
 /* === 加载状态 === */

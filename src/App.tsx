@@ -171,7 +171,9 @@ function App() {
           
           {/* 错误数 */}
           <div className="metric-card">
-            <div className="metric-value red">{errorLogs.length}</div>
+            <div className={`metric-value ${health?.errors > 0 ? 'red' : 'green'}`}>
+              {health?.errors ?? 0}
+            </div>
             <div className="metric-label">错误</div>
           </div>
         </div>
@@ -185,7 +187,12 @@ function App() {
               <div key={name} className={`network-card ${data.alive ? (data.status === 'slow' ? 'slow' : 'ok') : 'timeout'}`}>
                 <div className="network-name">{name}</div>
                 <div className="network-status">
-                  {data.alive ? `${data.latency}ms` : '✕'}
+                  {data.alive ? (
+                    <>
+                      {data.latency}
+                      <span className="network-unit">ms</span>
+                    </>
+                  ) : '✕'}
                 </div>
               </div>
             ))}
