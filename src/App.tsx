@@ -137,6 +137,7 @@ function App() {
           <div className="uptime-section">
             <div className="uptime-value">{health ? formatUptime(health.gateway.uptime) : '--'}</div>
             <div className="uptime-label">运行时间</div>
+            <div className="version-label">v{health?.gateway?.version || '--'}</div>
           </div>
         </div>
         

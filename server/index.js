@@ -79,6 +79,16 @@ async function getSystemStats() {
   }
 }
 
+// ==================== 获取 OpenClaw 版本 ====================
+async function getOpenClawVersion() {
+  try {
+    const { stdout } = await execAsync('openclaw --version', { timeout: 5000 })
+    return stdout.trim() || 'N/A'
+  } catch {
+    return 'N/A'
+  }
+}
+
 // ==================== 获取 Gateway 运行时间 ====================
 async function getGatewayUptime() {
   try {
@@ -252,12 +262,13 @@ async function poll() {
   console.log(`[${new Date().toLocaleTimeString()}] Polling...`)
   
   try {
-    const [healthData, networkData, systemStats, gatewayUptime, gatewayLogs] = await Promise.all([
+    const [healthData, networkData, systemStats, gatewayUptime, gatewayLogs, openclawVersion] = await Promise.all([
       fetchOpenClawHealth(),
       pingHosts(),
       getSystemStats(),
       getGatewayUptime(),
-      getGatewayLogs()
+      getGatewayLogs(),
+      getOpenClawVersion()
     ])
 
     if (healthData.connected) {
@@ -265,7 +276,7 @@ async function poll() {
         gateway: {
           connected: true,
           uptime: gatewayUptime,  // 使用 Gateway 进程运行时间
-          version: healthData.raw?.version || 'N/A'
+          version: openclawVersion
         },
         agents: healthData.agents,
         system: systemStats,
@@ -277,6 +288,7 @@ async function poll() {
     } else {
       cache.gateway.connected = false
       cache.gateway.uptime = gatewayUptime
+      cache.gateway.version = openclawVersion
       cache.system = systemStats
       cache.network = networkData
       cache.logs = gatewayLogs.logs
@@ -284,7 +296,7 @@ async function poll() {
       cache.lastUpdated = new Date().toISOString()
     }
 
-    console.log(`[${new Date().toLocaleTimeString()}] Updated. OpenClaw: ${cache.gateway.connected ? '✓' : '✗'}, Uptime: ${Math.floor(gatewayUptime/3600)}h, Errors: ${cache.errors}, Network: ${Object.keys(networkData).length} hosts, CPU: ${systemStats.cpu}%, Mem: ${systemStats.memory}%`)
+    console.log(`[${new Date().toLocaleTimeString()}] Updated. OpenClaw: ${cache.gateway.connected ? '✓' : '✗'}, Uptime: ${Math.floor(gatewayUptime/3600)}h, Version: ${openclawVersion}, Errors: ${cache.errors}, Network: ${Object.keys(networkData).length} hosts, CPU: ${systemStats.cpu}%, Mem: ${systemStats.memory}%`)
   } catch (error) {
     console.error('Poll error:', error.message)
   }

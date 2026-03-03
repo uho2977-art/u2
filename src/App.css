@@ -267,6 +267,13 @@ body {
   letter-spacing: 2px;
 }
 
+.version-label {
+  font-size: 10px;
+  color: var(--text-dim);
+  margin-top: 4px;
+  opacity: 0.6;
+}
+
 /* === 指标网格 === */
 .metrics-grid {
   display: grid;
