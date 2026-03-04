@@ -1,10 +1,11 @@
 import express from 'express'
 import { exec } from 'child_process'
 import { promisify } from 'util'
-import ping from 'ping'
 import os from 'os'
 import { fileURLToPath } from 'url'
 import { dirname, join } from 'path'
+import https from 'https'
+import http from 'http'
 
 const execAsync = promisify(exec)
 const __filename = fileURLToPath(import.meta.url)
@@ -225,24 +226,57 @@ async function fetchOpenClawHealth() {
   }
 }
 
-// ==================== Ping 探测 ====================
+// ==================== HTTP 延迟探测 ====================
+// 用 HTTP 代替 ICMP ping，穿透代理
+async function httpProbe(url, timeout = 5000) {
+  return new Promise((resolve) => {
+    const start = Date.now()
+    const urlObj = new URL(url)
+    const client = urlObj.protocol === 'https:' ? https : http
+    
+    const req = client.request(url, { method: 'HEAD', timeout }, (res) => {
+      const latency = Date.now() - start
+      resolve({ latency, status: res.statusCode ? 'ok' : 'error', alive: true })
+    })
+    
+    req.on('error', () => {
+      resolve({ latency: null, status: 'error', alive: false })
+    })
+    
+    req.on('timeout', () => {
+      req.destroy()
+      resolve({ latency: null, status: 'timeout', alive: false })
+    })
+    
+    req.end()
+  })
+}
+
 async function pingHosts() {
   const results = {}
   
+  // HTTP 检测 URL 映射
+  const httpHosts = {
+    'GitHub': 'https://github.com',
+    'YouTube': 'https://youtube.com',
+    'Telegram': 'https://telegram.org',
+    'Google': 'https://google.com',
+    'Ollama': 'https://ollama.com'
+  }
+  
   const promises = CONFIG.pingHosts.map(async ({ name, host }) => {
     try {
-      const result = await ping.promise.probe(host, { timeout: 5, min_reply: 1 })
+      const url = httpHosts[name] || `https://${host}`
+      const result = await httpProbe(url, 5000)
       
       if (result.alive) {
-        // ping 库返回秒，转换为毫秒
-        const latency = Math.round((result.time || result.avg || 0) * 1000)
         let status = 'ok'
-        if (latency > 200) status = 'slow'
-        else if (latency > 100) status = 'warning'
+        if (result.latency > 200) status = 'slow'
+        else if (result.latency > 100) status = 'warning'
         
-        return { name, data: { host, latency, status, alive: true } }
+        return { name, data: { host, latency: result.latency, status, alive: true } }
       } else {
-        return { name, data: { host, latency: null, status: 'timeout', alive: false } }
+        return { name, data: { host, latency: null, status: result.status, alive: false } }
       }
     } catch (error) {
       return { name, data: { host, latency: null, status: 'error', alive: false } }

@@ -9,12 +9,15 @@
     "build": "vite build",
     "start": "node server/index.js"
   },
-  "keywords": ["openclaw", "monitor", "dashboard"],
+  "keywords": [
+    "openclaw",
+    "monitor",
+    "dashboard"
+  ],
   "author": "",
   "license": "MIT",
   "dependencies": {
-    "express": "^4.18.2",
-    "ping": "^0.4.4"
+    "express": "^4.18.2"
   },
   "devDependencies": {
     "@types/react": "^18.2.66",
