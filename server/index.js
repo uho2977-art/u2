@@ -72,9 +72,28 @@ async function getSystemStats() {
     memUsage = (totalMem - freeMem) / totalMem * 100
   }
 
+  // 磁盘使用率
+  let diskUsage = 0
+  try {
+    // macOS/Linux: 使用 df 命令获取根目录磁盘使用率
+    // 计算: 100% - (可用/总容量)，反映真正已分配的空间
+    const { stdout } = await execAsync('df -k / | tail -1', { timeout: 2000 })
+    const parts = stdout.trim().split(/\s+/)
+    if (parts.length >= 4) {
+      const total = parseInt(parts[1])
+      const avail = parseInt(parts[3])
+      if (total > 0) {
+        diskUsage = 100 - (avail / total * 100)
+      }
+    }
+  } catch (e) {
+    console.log('Failed to get disk usage:', e.message)
+  }
+
   return {
     cpu: Math.round(cpuUsage * 10) / 10,
     memory: Math.round(memUsage * 10) / 10,
+    disk: Math.round(diskUsage * 10) / 10,
     platform: process.platform,
     nodeVersion: process.version
   }
@@ -367,8 +386,9 @@ app.get('*', (req, res) => {
 })
 
 // ==================== 启动 ====================
-app.listen(CONFIG.port, () => {
-  console.log(`OpenClaw Dashboard running on port ${CONFIG.port}`)
+const HOST = process.env.HOST || '0.0.0.0'
+app.listen(CONFIG.port, HOST, () => {
+  console.log(`OpenClaw Dashboard running on http://${HOST}:${CONFIG.port}`)
   console.log(`Poll interval: ${CONFIG.pollInterval / 1000}s`)
   
   poll()

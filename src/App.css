@@ -293,6 +293,13 @@ body {
   align-items: center;
 }
 
+/* CPU/内存/磁盘三合一卡片 */
+.metric-card.triple {
+  display: flex;
+  justify-content: space-around;
+  align-items: center;
+}
+
 .metric-dual-item {
   text-align: center;
 }
@@ -327,6 +334,12 @@ body {
 .metric-value.orange { color: var(--yellow); }
 .metric-value.red { color: var(--red); }
 .metric-value.white { color: var(--text); }
+.metric-value.purple { color: #aa66ff; }
+.metric-dual-value.green { color: var(--green); }
+.metric-dual-value.blue { color: #4488ff; }
+.metric-dual-value.orange { color: var(--yellow); }
+.metric-dual-value.red { color: var(--red); }
+.metric-dual-value.purple { color: #aa66ff; }
 
 .metric-sub {
   font-weight: 400;

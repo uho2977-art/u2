@@ -15,6 +15,7 @@ export interface HealthData {
   system: {
     cpu: number
     memory: number
+    disk: number
     platform: string
     nodeVersion: string
   }
@@ -150,8 +151,8 @@ function App() {
             <div className="metric-label">Agent</div>
           </div>
           
-          {/* CPU + 内存 */}
-          <div className="metric-card dual">
+          {/* CPU + 内存 + 磁盘 */}
+          <div className="metric-card triple">
             <div className="metric-dual-item">
               <div className="metric-dual-value blue">
                 {Math.round(health?.system.cpu ?? 0)}
@@ -166,6 +167,14 @@ function App() {
                 <span className="metric-sub">%</span>
               </div>
               <div className="metric-dual-label">内存</div>
+            </div>
+            <div className="metric-divider"></div>
+            <div className="metric-dual-item">
+              <div className="metric-dual-value purple">
+                {Math.round(health?.system.disk ?? 0)}
+                <span className="metric-sub">%</span>
+              </div>
+              <div className="metric-dual-label">磁盘</div>
             </div>
           </div>
           
